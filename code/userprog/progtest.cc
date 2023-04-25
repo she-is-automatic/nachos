@@ -27,7 +27,7 @@ void StartProcess(char *filename)
     AddrSpace *space;
 
     if (executable == NULL)
-    {
+    {   // 打不开
         printf("Unable to open file %s\n", filename);
         return;
     }
@@ -35,6 +35,7 @@ void StartProcess(char *filename)
     // 为用户进程分配内存空间
     // 创建页表，并将代码段和初始化数据段拷贝入内存
     space = new AddrSpace(executable);
+    
     // 将用户线程映射到核心线程
     currentThread->space = space;
     space->Print(); // 输出页表信息

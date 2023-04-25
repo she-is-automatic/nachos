@@ -78,6 +78,7 @@ AddrSpace::AddrSpace(OpenFile *executable)
     numPages = divRoundUp(size, PageSize);
     size = numPages * PageSize;
 
+    // 避免程序过大，超过物理页数总数
     ASSERT(numPages <= NumPhysPages); // check we're not trying
                                       // to run anything too big --
                                       // at least until we have

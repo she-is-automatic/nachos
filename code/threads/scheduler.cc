@@ -93,6 +93,7 @@ void Scheduler::Run(Thread *nextThread)
     Thread *oldThread = currentThread;
 
 #ifdef USER_PROGRAM // ignore until running user programs
+    // 如果之间已经有应用线程映射到该核心线程，则应该先保存原应用线程的状态
     if (currentThread->space != NULL)
     {                                   // if this thread is a user program,
         currentThread->SaveUserState(); // save the user's CPU registers
@@ -132,6 +133,7 @@ void Scheduler::Run(Thread *nextThread)
     }
 
 #ifdef USER_PROGRAM
+    // 恢复原线程的状态
     if (currentThread->space != NULL)
     {                                      // if there is an address space
         currentThread->RestoreUserState(); // to restore, do it.
