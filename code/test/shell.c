@@ -4,32 +4,36 @@ int
 main()
 {
     SpaceId newProc;
-    OpenFileId input = ConsoleInput;
-    OpenFileId output = ConsoleOutput;
-    char prompt[2], ch, buffer[60];
+    char prompt[8], ch, buffer[60];
     int i;
+    int output;
+    int input;
 
-    prompt[0] = '-';
-    prompt[1] = '-';
-
-    while( 1 )
-    {
-	Write(prompt, 2, output);
-
-	i = 0;
-	
-	do {
-	
-	    Read(&buffer[i], 1, input); 
-
-	} while( buffer[i++] != '\n' );
-
-	buffer[--i] = '\0';
-
-	if( i > 0 ) {
-		newProc = Exec(buffer);
-		Join(newProc);
+    Create("OutputFile");
+    output = Open("OutputFile");
+    prompt[0] = 'N';
+    prompt[1] = 'a';
+    prompt[2] = 'c';
+    prompt[3] = 'h';
+    prompt[4] = 'o';
+    prompt[5] = 's';
+    prompt[6] = '$';
+    prompt[7] = ' ';
+    Write(prompt,8,output);
+    Close(output);
+    
+    input=Open("InputFile");
+   
+    i=17;
+   Read(buffer,17,input);
+    Close(input);
+    buffer[i]='\0';
+    if(i>0){
+	Halt();
+        newProc=Exec(buffer);
+        if(newProc>=0){
+	    Join(newProc);	
 	}
-    }
+}
 }
 

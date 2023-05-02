@@ -44,8 +44,8 @@ __start:
 
 	.globl Halt
 	.ent	Halt
-Halt:   
-	addiu $2,$0,SC_Halt     //system call code in r2
+Halt:
+	addiu $2,$0,SC_Halt
 	syscall
 	j	$31
 	.end Halt

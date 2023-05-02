@@ -50,18 +50,17 @@ LD = $(GCCDIR)ld
 #        corresponding .o with start.o.  If you want to have more than
 #        one .c file per target, you will have to change stuff below.
 
-targets = halt shell matmult sort
+targets =fork filetest exit exec yield join halt shell matmult sort
 
 # Targest are put in the architecture specific 'bin' dir.
 
-all = $(targets:%=$(bin_dir)/%)
+all = $(targets:%=$(bin_dir)/%) 
 
 all_coff = $(targets:%=$(obj_dir)/%.coff)
 all_noff = $(all:%=%.noff)
 all_flat = $(all:%=%.flat)
 
-#all: $(all_noff) $(all_flat)
-all: $(all_noff)
+all: $(all_noff) $(all_flat)
 
 $(targets): % : $(bin_dir)/%
 	ln -sf $(bin_dir)/$@ $@
@@ -72,7 +71,7 @@ SFILES = start.s
 
 include ../Makefile.common
 
-INCDIR =-I../userprog -I../threads
+INCDIR = -I../lab7-8 -I../userprog -I../threads
 CFLAGS = -G 0 -c $(INCDIR)
 
 coff2noff = ../bin/$(real_bin_dir)/coff2noff
@@ -88,18 +87,13 @@ $(all_noff): $(bin_dir)/%.noff: $(obj_dir)/%.coff
 	ln -sf $@ $(notdir $@)
 
 
-#$(all_flat): $(bin_dir)/%.flat: $(obj_dir)/%.coff
-#	@echo ">>> Converting to flat file:" $@ "<<<"
-#	$(coff2flat) $^ $@
-#	ln -sf $@ $(notdir $@)	
-	
-#$(warning hhhhhhhhhhhhhhhhhhhhhhhhhhh $@)
+$(all_flat): $(bin_dir)/%.flat: $(obj_dir)/%.coff
+	@echo ">>> Converting to flat file:" $@ "<<<"
+	$(coff2flat) $^ $@
+	ln -sf $@ $(notdir $@)
+
 
 %.s: %.c
 	@echo ">>> Compiling .s file for" $< "<<<"
 	$(CC) $(CFLAGS) -S -c -o $@ $<
-#rename:
-#	for f in `find . -type f -name makefile`; do mv $f `dirname $f`/Makefile; done
-cleantest:
-	rm *.noff *.flat arch/unknown-i386-linux/depends/*.*  arch/unknown-i386-linux/objects/*.* arch/unknown-i386-linux/bin/*.* 
 endif # MAKEFILE_TEST
