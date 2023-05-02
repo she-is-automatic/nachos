@@ -19,26 +19,28 @@
 // 	Run a user program.  Open the executable, load it into
 //	memory, and jump to it.
 //----------------------------------------------------------------------
-
+// 为用户程序 filename 创建相应的进程，并启动该进程的执行
 void
 StartProcess(char *filename)
 {
-    OpenFile *executable = fileSystem->Open(filename);
-    AddrSpace *space;
+    OpenFile *executable = fileSystem->Open(filename); // 打开文件
+    AddrSpace *space;                                 // 定义地址空间
 
     if (executable == NULL) {
 	printf("Unable to open file %s\n", filename);
 	return;
     }
-    space = new AddrSpace(executable);    
-    currentThread->space = space;
+    space = new AddrSpace(executable); // 为应用程序分配内存地址空间
+    currentThread->space = space;   //将该进程映射到一个核心线程
+    //space->Print();             //输出该作业的页表信息
+    printf("------------------------------------------------------\n");
+    printf("MainThreadPID: %d, fileName: %s\n",space->getSpaceId(),filename);
+    delete executable;		 	// 关闭文件
 
-    delete executable;			// close file
+    space->InitRegisters();		// 初始化 CPU 的寄存器，包括数据寄存器、PC 以及栈指针 set the initial register values
+    space->RestoreState();		// 是将用户进程的页表传递给系统核心（Machine 类） load page table register
 
-    space->InitRegisters();		// set the initial register values
-    space->RestoreState();		// load page table register
-
-    machine->Run();			// jump to the user progam
+    machine->Run();			// 从程序入口开始，完成取指令、译码、执行的过程 jump to the user progam
     ASSERT(FALSE);			// machine->Run never returns;
 					// the address space exits
 					// by doing the syscall "exit"

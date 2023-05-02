@@ -1,6 +1,7 @@
-arch/unknown-i386-linux/depends/scheduler.d arch/unknown-i386-linux/objects/scheduler.o: ../threads/scheduler.cc ../threads/copyright.h \
- ../threads/scheduler.h ../threads/list.h ../threads/utility.h \
- ../threads/bool.h ../machine/sysdep.h ../threads/copyright.h \
- ../threads/thread.h ../threads/system.h ../machine/interrupt.h \
- ../threads/list.h ../machine/stats.h ../machine/timer.h \
- ../threads/utility.h
+arch/unknown-i386-linux/depends/scheduler.d arch/unknown-i386-linux/objects/scheduler.o: scheduler.cc ../threads/copyright.h scheduler.h list.h \
+ ../threads/utility.h ../threads/copyright.h ../threads/bool.h \
+ ../machine/sysdep.h thread.h ../machine/machine.h ../machine/translate.h \
+ ../machine/disk.h addrspace.h ../filesys/filesys.h ../filesys/openfile.h \
+ bitmap.h ../filesys/openfile.h ../threads/system.h ../threads/utility.h \
+ ../threads/thread.h ../threads/scheduler.h ../machine/interrupt.h \
+ ../threads/list.h ../machine/stats.h ../machine/timer.h

@@ -26,7 +26,6 @@
 //	object file header, in case the file was generated on a little
 //	endian machine, and we're now running on a big endian machine.
 //----------------------------------------------------------------------
-
 static void 
 SwapHeader (NoffHeader *noffH)
 {
@@ -57,23 +56,25 @@ SwapHeader (NoffHeader *noffH)
 //	"executable" is the file containing the object code to load into memory
 //----------------------------------------------------------------------
 
-AddrSpace::AddrSpace(OpenFile *executable)
-{
-    NoffHeader noffH;
-    unsigned int i, size;
+AddrSpace::AddrSpace(OpenFile *executable) {
+    ASSERT(pidMap->NumClear() >= 1);  // 确定有空闲的线程号
+    spaceId = pidMap->Find()+100;     // 0-99留给内核线程
 
-    executable->ReadAt((char *)&noffH, sizeof(noffH), 0);
+    NoffHeader noffH;       //noff文件头
+    unsigned int i, size;
+// 读出noff文件
+    executable->ReadAt((char *)&noffH, sizeof(noffH), 0);   
     if ((noffH.noffMagic != NOFFMAGIC) && 
 		(WordToHost(noffH.noffMagic) == NOFFMAGIC))
     	SwapHeader(&noffH);
     ASSERT(noffH.noffMagic == NOFFMAGIC);
 
-// how big is address space?
+// 确定地址空间大小 代码+已初始化+未初始化数据+用户栈
     size = noffH.code.size + noffH.initData.size + noffH.uninitData.size 
 			+ UserStackSize;	// we need to increase the size
 						// to leave room for the stack
-    numPages = divRoundUp(size, PageSize);
-    size = numPages * PageSize;
+    numPages = divRoundUp(size, PageSize);  //确定页数
+    size = numPages * PageSize;             //计算真实占用大小
 
     ASSERT(numPages <= NumPhysPages);		// check we're not trying
 						// to run anything too big --
@@ -82,11 +83,14 @@ AddrSpace::AddrSpace(OpenFile *executable)
 
     DEBUG('a', "Initializing address space, num pages %d, size %d\n", 
 					numPages, size);
-// first, set up the translation 
+// 第一步，创建页表 
+    //首先确定有足够的空闲帧
+    ASSERT(numPages <= freeMap->NumClear());  
+
     pageTable = new TranslationEntry[numPages];
-    for (i = 0; i < numPages; i++) {
+    for (i = 0; i < numPages; i++) {   //虚页实页映射
 	pageTable[i].virtualPage = i;	// for now, virtual page # = phys page #
-	pageTable[i].physicalPage = i;
+	pageTable[i].physicalPage = freeMap->Find();    // 寻找空闲页进行分配
 	pageTable[i].valid = TRUE;
 	pageTable[i].use = FALSE;
 	pageTable[i].dirty = FALSE;
@@ -95,26 +99,65 @@ AddrSpace::AddrSpace(OpenFile *executable)
 					// pages to be read-only
     }
     
-// zero out the entire address space, to zero the unitialized data segment 
-// and the stack segment
-    bzero(machine->mainMemory, size);
+// 清空物理内存数据
+    //bzero(machine->mainMemory, size);
 
-// then, copy in the code and data segments into memory
+// 将noff文件代码和数据段复制到物理内存中
+// 通过虚拟地址和页大小计算出所在页和页内偏移量，然后得出所在页对应的物理帧，最后加上页内偏移量
     if (noffH.code.size > 0) {
         DEBUG('a', "Initializing code segment, at 0x%x, size %d\n", 
 			noffH.code.virtualAddr, noffH.code.size);
-        executable->ReadAt(&(machine->mainMemory[noffH.code.virtualAddr]),
+        unsigned int vpn, offset,ppa;//virtualPage/offset/ physicalPageAddr
+        vpn = noffH.code.virtualAddr / PageSize;	//计算虚页编号
+        offset = noffH.code.virtualAddr % PageSize;//页内偏移量
+        ppa = pageTable[vpn].physicalPage * PageSize + offset;
+        executable->ReadAt(&(machine->mainMemory[ppa]),
 			noffH.code.size, noffH.code.inFileAddr);
     }
     if (noffH.initData.size > 0) {
         DEBUG('a', "Initializing data segment, at 0x%x, size %d\n", 
 			noffH.initData.virtualAddr, noffH.initData.size);
-        executable->ReadAt(&(machine->mainMemory[noffH.initData.virtualAddr]),
+        unsigned int vpn, offset,ppa;//virtualPagenum/offset/ physicalPageAddr
+        vpn = noffH.initData.virtualAddr / PageSize;	//计算虚页编号
+        offset = noffH.initData.virtualAddr % PageSize;//页内偏移量
+        ppa = pageTable[vpn].physicalPage * PageSize + offset;
+        executable->ReadAt(&(machine->mainMemory[ppa]),
 			noffH.initData.size, noffH.initData.inFileAddr);
     }
 
 }
 
+AddrSpace::AddrSpace(AddrSpace *space){
+    ASSERT(pidMap->NumClear() >= 1);  // 确定有空闲的线程号
+    spaceId = pidMap->Find()+100;     // 0-99留给内核线程
+    numPages = space->getnumPages();
+    // 第一步，创建页表 
+    //首先确定有足够的空闲帧
+    ASSERT(numPages <= freeMap->NumClear());  
+    pageTable = new TranslationEntry[numPages];
+    for (int i = 0; i < numPages; i++) {   //虚页实页映射
+      pageTable[i].virtualPage = i;	// for now, virtual page # = phys page #
+      pageTable[i].physicalPage = freeMap->Find();    // 寻找空闲页进行分配
+      pageTable[i].valid = TRUE;
+      pageTable[i].use = FALSE;
+      pageTable[i].dirty = FALSE;
+      pageTable[i].readOnly = FALSE; 
+    }
+    unsigned int i, size;
+    //复制父进程数据
+    size = numPages * PageSize;             //计算真实占用大小
+    if (size > 0) {
+        int physicalPagefirst = space->getphysicalPagefirst();
+        unsigned int ppa;
+        ppa = pageTable[0].physicalPage * PageSize;
+        for(i=0;i<size;i++)
+        {
+          machine->mainMemory[ppa+i] = machine->mainMemory[physicalPagefirst * PageSize +i];
+        }
+    }
+
+
+}
 //----------------------------------------------------------------------
 // AddrSpace::~AddrSpace
 // 	Dealloate an address space.  Nothing for now!
@@ -122,7 +165,10 @@ AddrSpace::AddrSpace(OpenFile *executable)
 
 AddrSpace::~AddrSpace()
 {
-   delete [] pageTable;
+  for(int i = 0; i < numPages; i++) //释放物理空间
+    freeMap->Clear(pageTable[i].physicalPage);
+  pidMap->Clear(spaceId-100);   //释放进程号
+  delete [] pageTable;
 }
 
 //----------------------------------------------------------------------
@@ -136,23 +182,18 @@ AddrSpace::~AddrSpace()
 //----------------------------------------------------------------------
 
 void
-AddrSpace::InitRegisters()
+AddrSpace::InitRegisters()  //初始化寄存器
 {
     int i;
 
-    for (i = 0; i < NumTotalRegs; i++)
-	machine->WriteRegister(i, 0);
+    for (i = 0; i < NumTotalRegs; i++)  //将寄存器register[i]初值置0
+	    machine->WriteRegister(i, 0);
+ 
+    machine->WriteRegister(PCReg, 0);	// PC寄存器初值置0 
+ 
+    machine->WriteRegister(NextPCReg, 4);   //存储下一个PC值的寄存器置4
 
-    // Initial program counter -- must be location of "Start"
-    machine->WriteRegister(PCReg, 0);	
-
-    // Need to also tell MIPS where next instruction is, because
-    // of branch delay possibility
-    machine->WriteRegister(NextPCReg, 4);
-
-   // Set the stack register to the end of the address space, where we
-   // allocated the stack; but subtract off a bit, to make sure we don't
-   // accidentally reference off the end!
+    //将栈顶指针初始化为应用程序空间的尾部,减16避免越界
     machine->WriteRegister(StackReg, numPages * PageSize - 16);
     DEBUG('a', "Initializing stack register to %d\n", numPages * PageSize - 16);
 }
@@ -166,7 +207,10 @@ AddrSpace::InitRegisters()
 //----------------------------------------------------------------------
 
 void AddrSpace::SaveState() 
-{}
+{
+  pageTable = machine->pageTable;
+  numPages = machine->pageTableSize;
+}
 
 //----------------------------------------------------------------------
 // AddrSpace::RestoreState
@@ -175,9 +219,31 @@ void AddrSpace::SaveState()
 //
 //      For now, tell the machine where to find the page table.
 //----------------------------------------------------------------------
-
+// 将用户进程的页表传递给 Machine 类
 void AddrSpace::RestoreState() 
 {
-    machine->pageTable = pageTable;
-    machine->pageTableSize = numPages;
+    machine->pageTable = pageTable;     // 页表项
+    machine->pageTableSize = numPages;  // 页表大小
+}
+
+
+/* void AddrSpace::Print() {
+    printf("page table dump: %d pages in total\n",numPages);
+    printf("============================================\n");
+    printf("\tVirtPage, \tPhysPage\n");
+
+    for(int i = 0; i < numPages; i++)
+        printf("\t%d,\t\t%d\n",pageTable[i].virtualPage,pageTable[i].physicalPage);
+    printf("============================================\n\n");
+}*/
+void AddrSpace::Print() {
+    printf("page table dump: %d pages in total\n",numPages);
+    printf("============================================\n");
+    printf("VirtPage : ");
+    for(int i = 0; i < numPages; i++)
+        printf("%d,",pageTable[i].virtualPage);
+    printf("\nPhysPage : ");
+    for(int i = 0; i < numPages; i++)
+        printf("%d,",pageTable[i].physicalPage);
+    printf("\n============================================\n\n");
 }

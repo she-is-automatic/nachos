@@ -15,8 +15,11 @@
 
 #include "copyright.h"
 #include "filesys.h"
+#include "bitmap.h"
 
 #define UserStackSize		1024 	// increase this as necessary!
+static BitMap *pidMap = new BitMap(128); //为进程分配相应的 pid
+static BitMap *freeMap = new BitMap(128);//用于管理空闲帧
 
 class AddrSpace {
   public:
@@ -25,17 +28,24 @@ class AddrSpace {
 					// stored in the file "executable"
     ~AddrSpace();			// De-allocate an address space
 
-    void InitRegisters();		// Initialize user-level CPU registers,
+    void InitRegisters();		// 初始化寄存器 Initialize user-level CPU registers,
 					// before jumping to user code
 
     void SaveState();			// Save/restore address space-specific
-    void RestoreState();		// info on a context switch 
+    void RestoreState();		// 将用户进程的页表传递给 Machine 类 info on a context switch 
+    void Print();           // 输出页表信息
+    unsigned int getSpaceId() { return spaceId; }
+  //用于复制父进程地址空间
+    AddrSpace(AddrSpace *space); //重构构造函数
+    unsigned int getnumPages() {return numPages;}//获得页数
+    int getphysicalPagefirst() { return pageTable[0].physicalPage;}//获得首物理页号
 
   private:
-    TranslationEntry *pageTable;	// Assume linear page table translation
+    TranslationEntry *pageTable;	// 页表 Assume linear page table translation
 					// for now!
-    unsigned int numPages;		// Number of pages in the virtual 
+    unsigned int numPages;		// 页数 Number of pages in the virtual 
 					// address space
+    unsigned int spaceId; //进程相应的 pid
 };
 
 #endif // ADDRSPACE_H
