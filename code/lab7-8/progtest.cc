@@ -32,7 +32,7 @@ StartProcess(char *filename)
     }
     space = new AddrSpace(executable); // 为应用程序分配内存地址空间
     currentThread->space = space;   //将该进程映射到一个核心线程
-    //space->Print();             //输出该作业的页表信息
+    // space->Print();             //输出该作业的页表信息
     printf("------------------------------------------------------\n");
     printf("MainThreadPID: %d, fileName: %s\n",space->getSpaceId(),filename);
     delete executable;		 	// 关闭文件

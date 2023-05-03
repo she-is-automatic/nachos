@@ -1,23 +1,24 @@
 #include "syscall.h"
 
-int main() {
+int main()
+{
 	OpenFileId Fp;
 	SpaceId newProc = Fork();
-	if(newProc==0)
+	if (newProc == 0)
 	{
 		Create("Ftest");
-    		// 打开文件
-    		Fp= Open("Ftest");
-    		// 写文件
-    		Write("hello",5,Fp);
+		// 打开文件
+		Fp = Open("Ftest");
+		// 写文件
+		Write("hello", 5, Fp);
 		Close(Fp);
 	}
 	else
 	{
 		Join(newProc);
 		Fp = Open("Ftest");
-    		Write("world",5,Fp);
+		Write("world", 5, Fp);
 		Close(Fp);
 	}
-    	Exit(0);
+	Exit(0);
 }

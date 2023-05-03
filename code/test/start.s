@@ -130,6 +130,15 @@ Yield:
 	j	$31
 	.end Yield
 
+
+	.globl Time
+	.ent	Time
+Time:
+	addiu $2,$0,SC_Time
+	syscall
+	j	$31
+	.end Time
+
 /* dummy function to keep gcc happy */
         .globl  __main
         .ent    __main

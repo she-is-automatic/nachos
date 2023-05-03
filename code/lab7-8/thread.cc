@@ -1,4 +1,4 @@
-// thread.cc 
+// thread.cc
 //	Routines to manage threads.  There are four main operations:
 //
 //	Fork -- create a thread to run a procedure concurrently
@@ -7,11 +7,11 @@
 //	Finish -- called when the forked procedure finishes, to clean up
 //	Yield -- relinquish control over the CPU to another ready thread
 //	Sleep -- relinquish control over the CPU, but thread is now blocked.
-//		In other words, it will not run again, until explicitly 
+//		In other words, it will not run again, until explicitly
 //		put back on the ready queue.
 //
 // Copyright (c) 1992-1993 The Regents of the University of California.
-// All rights reserved.  See copyright.h for copyright notice and limitation 
+// All rights reserved.  See copyright.h for copyright notice and limitation
 // of liability and disclaimer of warranty provisions.
 
 #include "copyright.h"
@@ -20,9 +20,9 @@
 #include "synch.h"
 #include "system.h"
 
-#define STACK_FENCEPOST 0xdeadbeef	// this is put at the top of the
-					// execution stack, for detecting 
-					// stack overflows
+#define STACK_FENCEPOST 0xdeadbeef // this is put at the top of the
+                                   // execution stack, for detecting
+                                   // stack overflows
 
 //----------------------------------------------------------------------
 // Thread::Thread
@@ -32,18 +32,18 @@
 //	"threadName" is an arbitrary string, useful for debugging.
 //----------------------------------------------------------------------
 
-Thread::Thread(char* threadName)
+Thread::Thread(char *threadName)
 {
-// name = threadName;
+    // name = threadName;
     name = new char[50];
-    strcpy(name,threadName);
+    strcpy(name, threadName);
     stackTop = NULL;
     stack = NULL;
     status = JUST_CREATED;
 #ifdef USER_PROGRAM
     space = NULL;
-    parentThread = NULL;//父进程
-    childThreadList = new List;//子进程链表
+    parentThread = NULL;        // 父进程
+    childThreadList = new List; // 子进程链表
 
 #endif
 }
@@ -62,12 +62,12 @@ Thread::Thread(char* threadName)
 
 Thread::~Thread()
 {
-// printf("Thread Delete, SpaceId: %d\n",space->getSpaceId());
+    // printf("Thread Delete, SpaceId: %d\n",space->getSpaceId());
     DEBUG('t', "Deleting thread \"%s\"\n", name);
 
     ASSERT(this != currentThread);
     if (stack != NULL)
-		DeallocBoundedArray((char *) stack, StackSize * sizeof(_int));
+        DeallocBoundedArray((char *)stack, StackSize * sizeof(_int));
 #ifdef USER_PROGRAM
     delete childThreadList;
 #endif
@@ -75,7 +75,7 @@ Thread::~Thread()
 
 //----------------------------------------------------------------------
 // Thread::Fork
-// 	Invoke (*func)(arg), allowing caller and callee to execute 
+// 	Invoke (*func)(arg), allowing caller and callee to execute
 //	concurrently.
 //
 //	NOTE: although our definition allows only a single integer argument
@@ -88,28 +88,27 @@ Thread::~Thread()
 //		2. Initialize the stack so that a call to SWITCH will
 //		cause it to run the procedure
 //		3. Put the thread on the ready queue
-// 	
+//
 //	"func" is the procedure to run concurrently.
 //	"arg" is a single argument to be passed to the procedure.
 //----------------------------------------------------------------------
 
-void 
-Thread::Fork(VoidFunctionPtr func, _int arg)
+void Thread::Fork(VoidFunctionPtr func, _int arg)
 {
 #ifdef HOST_ALPHA
     DEBUG('t', "Forking thread \"%s\" with func = 0x%lx, arg = %ld\n",
-	  name, (long) func, arg);
+          name, (long)func, arg);
 #else
     DEBUG('t', "Forking thread \"%s\" with func = 0x%x, arg = %d\n",
-	  name, (int) func, arg);
+          name, (int)func, arg);
 #endif
     StackAllocate(func, arg);
 
     IntStatus oldLevel = interrupt->SetLevel(IntOff);
-    scheduler->ReadyToRun(this);	// ReadyToRun assumes that interrupts 
-					// are disabled!
-    (void) interrupt->SetLevel(oldLevel);
-}    
+    scheduler->ReadyToRun(this); // ReadyToRun assumes that interrupts
+                                 // are disabled!
+    (void)interrupt->SetLevel(oldLevel);
+}
 
 //----------------------------------------------------------------------
 // Thread::CheckOverflow
@@ -126,64 +125,47 @@ Thread::Fork(VoidFunctionPtr func, _int arg)
 // 	Don't do this: void foo() { int bigArray[10000]; ... }
 //----------------------------------------------------------------------
 
-void
-Thread::CheckOverflow()
+void Thread::CheckOverflow()
 {
     if (stack != NULL)
-#ifdef HOST_SNAKE			// Stacks grow upward on the Snakes
-	ASSERT((unsigned int)stack[StackSize - 1] == STACK_FENCEPOST);
+#ifdef HOST_SNAKE // Stacks grow upward on the Snakes
+        ASSERT((unsigned int)stack[StackSize - 1] == STACK_FENCEPOST);
 #else
-	ASSERT((unsigned int)*stack == STACK_FENCEPOST);
+        ASSERT((unsigned int)*stack == STACK_FENCEPOST);
 #endif
 }
 
 //----------------------------------------------------------------------
 // Thread::Finish
-// 	Called by ThreadRoot when a thread is done executing the 
+// 	Called by ThreadRoot when a thread is done executing the
 //	forked procedure.
 //
-// 	NOTE: we don't immediately de-allocate the thread data structure 
-//	or the execution stack, because we're still running in the thread 
-//	and we're still on the stack!  Instead, we set "threadToBeDestroyed", 
+// 	NOTE: we don't immediately de-allocate the thread data structure
+//	or the execution stack, because we're still running in the thread
+//	and we're still on the stack!  Instead, we set "threadToBeDestroyed",
 //	so that Scheduler::Run() will call the destructor, once we're
 //	running in the context of a different thread.
 //
-// 	NOTE: we disable interrupts, so that we don't get a time slice 
+// 	NOTE: we disable interrupts, so that we don't get a time slice
 //	between setting threadToBeDestroyed, and going to sleep.
-//  该函数用于中止当前线程;
-//  首先需要将该线程阻塞并进行线程切换，之后再由其它线程将该线程删除。
 //----------------------------------------------------------------------
-
-void Thread::Finish () {
-    (void) interrupt->SetLevel(IntOff);		
+// 子进程结束后唤醒父进程
+void Thread::Finish()
+{
+    (void)interrupt->SetLevel(IntOff);
     ASSERT(this == currentThread);
 #ifdef USER_PROGRAM
-    //当有父进程，确定父进程是否在等待
-     if(parentThread!=NULL&&parentThread->waitProcessSpaceId == userProgramId()){
+    // 若结束的线程有父进程，且父进程在等待该线程终止
+    // 则需要将该线程的退出码返回给父进程，并唤醒父进程（将其加入就绪队列）
+    if (parentThread != NULL && parentThread->waitProcessSpaceId == userProgramId())
+    {
         // 将子线程退出码赋给父进程的等待退出码
         parentThread->setWaitExitCode(exitCode);
         scheduler->ReadyToRun((Thread *)parentThread);
     }
+
+    // 该线程设置为TERMINATED状态，调度下一个就绪线程执行
     Terminated();
-/* 另一种方法
-    // 运行结束, 执行Exit()命令时已获取退出码
-    // Joinee 运行结束, 唤醒 Joiner
-    List *waitingList = scheduler->getWaitingList();
-    // 检查 Joiner 是否在等待队列中
-    ListElement *first = waitingList->listFirst(); // 队列首
-    while(first != NULL){
-        Thread *thread = (Thread *)first->item;     // 强转成Thread指针
-        if(thread->waitProcessSpaceId == userProgramId()){       // 在队列中
-            // printf("yes\n");
-            // 将子线程退出码赋给父进程的等待退出码
-            thread->setWaitExitCode(exitCode);
-            scheduler->ReadyToRun((Thread *)thread);
-            waitingList->RemoveItem(first);
-            break;
-        }
-        first = first->next;
-    }
-    Terminated(); */
 #else
     DEBUG('t', "Finishing thread \"%s\"\n", getName());
     threadToBeDestroyed = currentThread;
@@ -204,28 +186,28 @@ void Thread::Finish () {
 //	NOTE: we disable interrupts, so that looking at the thread
 //	on the front of the ready list, and switching to it, can be done
 //	atomically.  On return, we re-set the interrupt level to its
-//	original state, in case we are called with interrupts disabled. 
+//	original state, in case we are called with interrupts disabled.
 //
 // 	Similar to Thread::Sleep(), but a little different.
 //  该函数将下一个可运行态线程调度出来运行，之前运行的线程仍然属于可运行态。
 //----------------------------------------------------------------------
 
-void
-Thread::Yield ()
+void Thread::Yield()
 {
     Thread *nextThread;
-    IntStatus oldLevel = interrupt->SetLevel(IntOff); //关中断
-    
+    IntStatus oldLevel = interrupt->SetLevel(IntOff); // 关中断
+
     ASSERT(this == currentThread);
-    
+
     DEBUG('t', "Yielding thread \"%s\"\n", getName());
-    
+
     nextThread = scheduler->FindNextToRun();
-    if (nextThread != NULL) {
-	scheduler->ReadyToRun(this);
-	scheduler->Run(nextThread);
+    if (nextThread != NULL)
+    {
+        scheduler->ReadyToRun(this);
+        scheduler->Run(nextThread);
     }
-    (void) interrupt->SetLevel(oldLevel); //恢复
+    (void)interrupt->SetLevel(oldLevel); // 恢复
 }
 //----------------------------------------------------------------------
 // Thread::Sleep
@@ -242,24 +224,23 @@ Thread::Yield ()
 //
 //	NOTE: we assume interrupts are already disabled, because it
 //	is called from the synchronization routines which must
-//	disable interrupts for atomicity.   We need interrupts off 
+//	disable interrupts for atomicity.   We need interrupts off
 //	so that there can't be a time slice between pulling the first thread
 //	off the ready list, and switching to it.
 //  该函数即将当前线程设置为阻塞态，并找到下一个可运行态线程进行调度。
 //----------------------------------------------------------------------
-void
-Thread::Sleep ()
+void Thread::Sleep()
 {
     Thread *nextThread;
-    
+
     ASSERT(this == currentThread);
     ASSERT(interrupt->getLevel() == IntOff);
-    
+
     DEBUG('t', "Sleeping thread \"%s\"\n", getName());
     // 保证当前为关中断状态
-    status = BLOCKED;   // 设置为阻塞态
+    status = BLOCKED; // 设置为阻塞态
     while ((nextThread = scheduler->FindNextToRun()) == NULL)
-	interrupt->Idle();	// no one to run, wait for an interrupt 没有线程运行，等待中断      
+        interrupt->Idle();      // no one to run, wait for an interrupt 没有线程运行，等待中断
     scheduler->Run(nextThread); // returns when we've been signalled 运行下一个线程
 }
 
@@ -267,13 +248,17 @@ Thread::Sleep ()
 // ThreadFinish, InterruptEnable, ThreadPrint
 //	Dummy functions because C++ does not allow a pointer to a member
 //	function.  So in order to do this, we create a dummy C function
-//	(which we can pass a pointer to), that then simply calls the 
+//	(which we can pass a pointer to), that then simply calls the
 //	member function.
 //----------------------------------------------------------------------
 
-static void ThreadFinish()    { currentThread->Finish(); }
+static void ThreadFinish() { currentThread->Finish(); }
 static void InterruptEnable() { interrupt->Enable(); }
-void ThreadPrint(_int arg){ Thread *t = (Thread *)arg; t->Print(); }
+void ThreadPrint(_int arg)
+{
+    Thread *t = (Thread *)arg;
+    t->Print();
+}
 
 //----------------------------------------------------------------------
 // Thread::StackAllocate
@@ -287,44 +272,43 @@ void ThreadPrint(_int arg){ Thread *t = (Thread *)arg; t->Print(); }
 //	"arg" is the parameter to be passed to the procedure
 //----------------------------------------------------------------------
 
-void
-Thread::StackAllocate (VoidFunctionPtr func, _int arg)
+void Thread::StackAllocate(VoidFunctionPtr func, _int arg)
 {
-    stack = (int *) AllocBoundedArray(StackSize * sizeof(_int));
+    stack = (int *)AllocBoundedArray(StackSize * sizeof(_int));
 
 #ifdef HOST_SNAKE
     // HP stack works from low addresses to high addresses
-    stackTop = stack + 16;	// HP requires 64-byte frame marker
+    stackTop = stack + 16; // HP requires 64-byte frame marker
     stack[StackSize - 1] = STACK_FENCEPOST;
 #else
     // i386 & MIPS & SPARC & ALPHA stack works from high addresses to low addresses
 #ifdef HOST_SPARC
     // SPARC stack must contains at least 1 activation record to start with.
     stackTop = stack + StackSize - 96;
-#else  // HOST_MIPS  || HOST_i386 || HOST_ALPHA
-    stackTop = stack + StackSize - 4;	// -4 to be on the safe side!
+#else // HOST_MIPS  || HOST_i386 || HOST_ALPHA
+    stackTop = stack + StackSize - 4; // -4 to be on the safe side!
 #ifdef HOST_i386
-    // the 80386 passes the return address on the stack.  In order for
-    // SWITCH() to go to ThreadRoot when we switch to this thread, the
-    // return addres used in SWITCH() must be the starting address of
-    // ThreadRoot.
+                                      // the 80386 passes the return address on the stack.  In order for
+                                      // SWITCH() to go to ThreadRoot when we switch to this thread, the
+                                      // return addres used in SWITCH() must be the starting address of
+                                      // ThreadRoot.
 
     //   *(--stackTop) = (int)ThreadRoot;
     // This statement can be commented out after a bug in SWITCH function
-    // of i386 has been fixed: The current last three instruction of 
-    // i386 SWITCH is as follows: 
+    // of i386 has been fixed: The current last three instruction of
+    // i386 SWITCH is as follows:
     // movl    %eax,4(%esp)            # copy over the ret address on the stack
     // movl    _eax_save,%eax
     // ret
-    // Here "movl    %eax,4(%esp)" should be "movl   %eax,0(%esp)". 
+    // Here "movl    %eax,4(%esp)" should be "movl   %eax,0(%esp)".
     // After this bug is fixed, the starting address of ThreadRoot,
-    // which is stored in machineState[PCState] by the next stament, 
+    // which is stored in machineState[PCState] by the next stament,
     // will be put to the location pointed by %esp when the SWITCH function
     // "return" to ThreadRoot.
     // It seems that this statement was used to get around that bug in SWITCH.
     //
     // However, this statement will be needed, if SWITCH for i386 is
-    // further simplified. In fact, the code to save and 
+    // further simplified. In fact, the code to save and
     // retore the return address are all redundent, because the
     // return address is already in the stack (pointed by %esp).
     // That is, the following four instructions can be removed:
@@ -333,64 +317,62 @@ Thread::StackAllocate (VoidFunctionPtr func, _int arg)
     // movl    %ebx,_PC(%eax)          # save it into the pc storage
     // ...
     // movl    _PC(%eax),%eax          # restore return address into eax
-    // movl    %eax,0(%esp)            # copy over the ret address on the stack#    
+    // movl    %eax,0(%esp)            # copy over the ret address on the stack#
 
     // The SWITCH function can be as follows:
-//         .comm   _eax_save,4
+    //         .comm   _eax_save,4
 
-//         .globl  SWITCH
-// SWITCH:
-//         movl    %eax,_eax_save          # save the value of eax
-//         movl    4(%esp),%eax            # move pointer to t1 into eax
-//         movl    %ebx,_EBX(%eax)         # save registers
-//         movl    %ecx,_ECX(%eax)
-//         movl    %edx,_EDX(%eax)
-//         movl    %esi,_ESI(%eax)
-//         movl    %edi,_EDI(%eax)
-//         movl    %ebp,_EBP(%eax)
-//         movl    %esp,_ESP(%eax)         # save stack pointer
-//         movl    _eax_save,%ebx          # get the saved value of eax
-//         movl    %ebx,_EAX(%eax)         # store it
+    //         .globl  SWITCH
+    // SWITCH:
+    //         movl    %eax,_eax_save          # save the value of eax
+    //         movl    4(%esp),%eax            # move pointer to t1 into eax
+    //         movl    %ebx,_EBX(%eax)         # save registers
+    //         movl    %ecx,_ECX(%eax)
+    //         movl    %edx,_EDX(%eax)
+    //         movl    %esi,_ESI(%eax)
+    //         movl    %edi,_EDI(%eax)
+    //         movl    %ebp,_EBP(%eax)
+    //         movl    %esp,_ESP(%eax)         # save stack pointer
+    //         movl    _eax_save,%ebx          # get the saved value of eax
+    //         movl    %ebx,_EAX(%eax)         # store it
 
-//         movl    8(%esp),%eax            # move pointer to t2 into eax
+    //         movl    8(%esp),%eax            # move pointer to t2 into eax
 
-//         movl    _EAX(%eax),%ebx         # get new value for eax into ebx
-//         movl    %ebx,_eax_save          # save it
-//         movl    _EBX(%eax),%ebx         # retore old registers
-//         movl    _ECX(%eax),%ecx
-//         movl    _EDX(%eax),%edx
-//         movl    _ESI(%eax),%esi
-//         movl    _EDI(%eax),%edi
-//         movl    _EBP(%eax),%ebp
-//         movl    _ESP(%eax),%esp         # restore stack pointer
-	
-//         movl    _eax_save,%eax
+    //         movl    _EAX(%eax),%ebx         # get new value for eax into ebx
+    //         movl    %ebx,_eax_save          # save it
+    //         movl    _EBX(%eax),%ebx         # retore old registers
+    //         movl    _ECX(%eax),%ecx
+    //         movl    _EDX(%eax),%edx
+    //         movl    _ESI(%eax),%esi
+    //         movl    _EDI(%eax),%edi
+    //         movl    _EBP(%eax),%ebp
+    //         movl    _ESP(%eax),%esp         # restore stack pointer
 
-//         ret
+    //         movl    _eax_save,%eax
 
-    //In this case the above statement 
-    //    *(--stackTop) = (int)ThreadRoot;
-    // is necesssary. But, the following statement
-    //    machineState[PCState] = (_int) ThreadRoot;
-    // becomes redundant.
+    //         ret
+
+    // In this case the above statement
+    //     *(--stackTop) = (int)ThreadRoot;
+    //  is necesssary. But, the following statement
+    //     machineState[PCState] = (_int) ThreadRoot;
+    //  becomes redundant.
 
     // Peiyi Tang, ptang@titus.compsci.ualr.edu
     // Department of Computer Science
     // University of Arkansas at Little Rock
     // Sep 1, 2003
 
-
-
 #endif
-#endif  // HOST_SPARC
+#endif // HOST_SPARC
     *stack = STACK_FENCEPOST;
-#endif  // HOST_SNAKE
-    
-    machineState[PCState] = (_int) ThreadRoot;
-    machineState[StartupPCState] = (_int) InterruptEnable;
-    machineState[InitialPCState] = (_int) func;
+#endif // HOST_SNAKE
+
+    machineState[PCState] = (_int)ThreadRoot;
+    machineState[StartupPCState] = (_int)InterruptEnable;
+    machineState[InitialPCState] = (_int)func;
     machineState[InitialArgState] = arg;
-    machineState[WhenDonePCState] = (_int) ThreadFinish;
+    machineState[WhenDonePCState] = (_int)ThreadFinish;
 }
 
 #ifdef USER_PROGRAM
@@ -400,15 +382,17 @@ Thread::StackAllocate (VoidFunctionPtr func, _int arg)
 // Thread::SaveUserState
 //	Save the CPU state of a user program on a context switch.
 //
-//	Note that a user program thread has *two* sets of CPU registers -- 
-//	one for its state while executing user code, one for its state 
+//	Note that a user program thread has *two* sets of CPU registers --
+//	one for its state while executing user code, one for its state
 //	while executing kernel code.  This routine saves the former.
 //----------------------------------------------------------------------
 
-void Thread::SaveUserState() {
-    for (int i = 0; i < NumTotalRegs; i++){
+void Thread::SaveUserState()
+{
+    for (int i = 0; i < NumTotalRegs; i++)
+    {
         // printf("change, i:%d, ",i); Print();
-    	userRegisters[i] = machine->ReadRegister(i);
+        userRegisters[i] = machine->ReadRegister(i);
     }
 }
 
@@ -416,94 +400,75 @@ void Thread::SaveUserState() {
 // Thread::RestoreUserState
 //	Restore the CPU state of a user program on a context switch.
 //
-//	Note that a user program thread has *two* sets of CPU registers -- 
-//	one for its state while executing user code, one for its state 
+//	Note that a user program thread has *two* sets of CPU registers --
+//	one for its state while executing user code, one for its state
 //	while executing kernel code.  This routine restores the former.
 //----------------------------------------------------------------------
 
-void Thread::RestoreUserState() {
+void Thread::RestoreUserState()
+{
     for (int i = 0; i < NumTotalRegs; i++)
-    	machine->WriteRegister(i, userRegisters[i]);
+        machine->WriteRegister(i, userRegisters[i]);
 }
-/*
-//确定子进程当前状态，若发现子进程仍是活动态时，睡眠，然后等待子进程执行完成唤醒父进程。
-//若发现子进程已经终止，设置等待子进程退出码。
-void Thread::Join(int SpaceId) {
-    IntStatus oldLevel = interrupt->SetLevel(IntOff);       // 关中断
-    waitProcessSpaceId = SpaceId;                        // 设置当前线程所等待进程的spaceId
-    List *terminatedList = scheduler->getTerminatedList();  // 终止队列
-    //List *waitingList = scheduler->getWaitingList();        // 等待队列
-    // 确定Joinee在不在终止队列中
-    bool interminatedList = FALSE;
-    ListElement *first = terminatedList->listFirst(); // 队列首
-    while(first != NULL){
-        Thread *thread = (Thread *)first->item;     // 强转成Thread指针
-        if(thread->userProgramId() == SpaceId){       // 在队列中
-            interminatedList = TRUE;
-            waitProcessExitCode = thread->ExitCode();  // 设置父线程等待子线程退出码
-            break;
-        }
-        first = first->next;
-    }
-    // Joinee不在终止队列中, 可运行态或阻塞态
-    if(!interminatedList){
-        waitingList->Append((void *)this);  // 阻塞Joiner
-        currentThread->Sleep();             // Joiner阻塞
-    }
-    // 被唤醒且Joinee在终止队列中，在终止队列中删除Joinee
-    scheduler->deleteTerminatedThread(SpaceId);
-    (void) interrupt->SetLevel(oldLevel);   // 开中断
-} 
-*/
-void Thread::Join(int SpaceId) {
-    IntStatus oldLevel = interrupt->SetLevel(IntOff);       // 关中断
-    List *threadList = currentThread->GetChildThreads();    //子进程队列
-    // 确定Joinee在不在子进程队列中
+
+void Thread::Join(int SpaceId)
+{
+    IntStatus oldLevel = interrupt->SetLevel(IntOff);    // 关中断
+    List *threadList = currentThread->GetChildThreads(); // 获取子进程队列
+
+    // 查看Joinee在不在子进程队列中
     Thread *target = NULL;
-    ListElement *ptr = threadList->listFirst(); // 队列首
-    while(ptr != NULL) {
+    ListElement *ptr = threadList->listFirst(); // 队列首开始遍历
+    while (ptr != NULL)
+    {
         Thread *thread = (Thread *)ptr->item;
-        if(thread->userProgramId() == SpaceId) {//是子进程
+        if (thread->userProgramId() == SpaceId)
+        { // 是子进程
             target = thread;
             waitProcessSpaceId = SpaceId; // 设置当前线程所等待进程的spaceId
             break;
         }
         ptr = ptr->next;
     }
-    if(!target) {   //不是
-        interrupt->SetLevel(oldLevel);
-        return;
-    }
-    // 确定Joinee在不在终止队列中
-    if(target->getStatus() == TERMINATED){
-        waitProcessExitCode = target->ExitCode();  // 设置父线程等待子线程退出码
-    }else       //不在队列中
+
+    // 确定Joinee是否终止；
+    // 若joinee已经终止，则获取子线程退出码，直接退出即可
+    // 若joinee还在执行，则将当前线程阻塞，等待被唤醒
+    if (target)
     {
-        currentThread->Sleep();             // Joiner阻塞
+        if (target->getStatus() == TERMINATED)
+            waitProcessExitCode = target->ExitCode(); // 设置父线程等待子线程退出码
+        else
+            currentThread->Sleep(); // Joiner阻塞
+
+        
+        delete target;  // 释放joinee的资源
     }
-    delete target;
-    (void) interrupt->SetLevel(oldLevel);   // 开中断
+
+    (void)interrupt->SetLevel(oldLevel); // 开中断
 }
-//-----------------------------------------------------
-//将当前进程终止并加入终止队列，调度其他进程执行
-//---------------------------------------------------------
-void Thread::Terminated() {
-    //List *terminatedList = scheduler->getTerminatedList();
+
+// 将当前进程终止，调度其他进程执行
+void Thread::Terminated()
+{
     ASSERT(this == currentThread);
     ASSERT(interrupt->getLevel() == IntOff);
-    status = TERMINATED;    //设置状态
-    //terminatedList->Append((void *)this); //加入终止队列
-    Thread *nextThread = scheduler->FindNextToRun();
+
+    status = TERMINATED; // 该线程设置为终止状态
+
     // 调度其他线程执行
-    while(nextThread == NULL){
-        // printf("yes\n");
-        interrupt->Idle();//等待中断
+    Thread *nextThread = scheduler->FindNextToRun();
+    while (nextThread == NULL)
+    {
+        interrupt->Idle(); // 等待中断
         nextThread = scheduler->FindNextToRun();
     }
     scheduler->Run(nextThread);
 }
-//设置父子进程
-void Thread::ConnectThread(Thread *childThread) {
+
+// 设置父子进程关系，构建进程树
+void Thread::ConnectThread(Thread *childThread)
+{
     childThread->SetParentThread(this);
     childThreadList->Append((void *)childThread);
 }

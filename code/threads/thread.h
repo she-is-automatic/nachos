@@ -84,7 +84,7 @@ class Thread {
     Thread(char* debugName);		// 构造函数 
     ~Thread(); 				// 析构函数，运行态线程不可析构
     
-    // 下述为基础线程操作
+    // 基础线程操作
     void Fork(VoidFunctionPtr func, _int arg); 	// 使线程运行在 (*func)(arg) 函数位置
     void Yield();  		// 当前线程，运行态 => 可运行态，调度其它线程
     void Sleep();  		// 当前线程，运行态 => 阻塞态，调度其它线程
@@ -96,8 +96,8 @@ class Thread {
     void Print() { printf("%s\n", name); }  // 输出线程名
 
 #ifdef USER_PROGRAM
-    AddrSpace *space;			// 运行用户程序时的地址空间
-    void SaveUserState();		// 保存用户态下寄存器状态
+    AddrSpace *space;   			// 运行用户程序时的地址空间
+    void SaveUserState(); 		// 保存用户态下寄存器状态
     void RestoreUserState();	// 恢复用户态下寄存器状态
     ThreadStatus getStatus() { return status; } //得到进程状态
     void Join(int SpaceId);
@@ -107,12 +107,13 @@ class Thread {
     int waitExitCode() { return waitProcessExitCode; }
     int setWaitExitCode(int tmpCode) { waitProcessExitCode = tmpCode; }
     int setExitCode(int tmpCode) { exitCode = tmpCode; }
-    //构建进程树相关函数
+
+    // 进程树相关函数
     void ConnectThread(Thread *childThread); //构建进程树
     void SetParentThread(Thread *parent) { parentThread = parent; }
     Thread *GetParentThread() { return parentThread; }
     List *GetChildThreads() { return childThreadList; }
-    void setuserRegisters(int num,int value) { userRegisters[num]=value;}
+    void setuserRegisters(int num, int value) { userRegisters[num]=value;}
 
   private:
         // 运行用户程序的线程有两组CPU寄存器，
