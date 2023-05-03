@@ -18,8 +18,8 @@
 #include "bitmap.h"
 #include "machine.h"
 
-#define UserStackSize 1024                // increase this as necessary!
-static BitMap *pidMap = new BitMap(128);  // 管理 pid 的分配
+#define UserStackSize 1024                         // increase this as necessary!
+static BitMap *pidMap = new BitMap(128);           // 管理 pid 的分配
 static BitMap *freeMap = new BitMap(NumPhysPages); // 管理空闲帧
 
 class AddrSpace
@@ -44,9 +44,17 @@ public:
   int getphysicalPagefirst() { return pageTable[0].physicalPage; } // 获得首物理页号
 
 private:
-  TranslationEntry *pageTable; // 页表 
-  unsigned int numPages;       // 页数 
+  TranslationEntry *pageTable; // 页表
+  unsigned int numPages;       // 页数
   unsigned int spaceId;        // 进程相应的 pid
+
+  // 文件描述符，0,1,2分别为stdin,stdout与stderr
+  OpenFile *fileDescriptor[10];
+
+public:
+  int getFileDescriptor(OpenFile *openfile);
+  OpenFile *getFileId(int fd);
+  void releaseFileDescriptor(int fd);
 };
 
 #endif // ADDRSPACE_H

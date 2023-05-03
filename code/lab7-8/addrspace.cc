@@ -125,6 +125,18 @@ AddrSpace::AddrSpace(OpenFile *executable)
         executable->ReadAt(&(machine->mainMemory[ppn]),
                            noffH.initData.size, noffH.initData.inFileAddr);
     }
+
+    // 初始化打开文件的文件描述符
+    for (int i=3;i<10;i++)    //up to open 10 file for each process
+       fileDescriptor[i] = NULL; 
+       
+    OpenFile *StdinFile = new OpenFile("stdin");
+    OpenFile *StdoutFile = new OpenFile("stdout");
+    OpenFile *StderrFile = new OpenFile("stderr");
+    fileDescriptor[0] =  StdinFile;
+    fileDescriptor[1] =  StdoutFile;
+    fileDescriptor[2] =  StderrFile;
+
 }
 
 AddrSpace::AddrSpace(AddrSpace *space)
@@ -238,4 +250,29 @@ void AddrSpace::Print()
     for (int i = 0; i < numPages; i++)
         printf("%2d ", pageTable[i].physicalPage);
     printf("\n=======================================================\n\n");
+}
+
+
+int AddrSpace::getFileDescriptor(OpenFile * openfile)
+{
+    for (int i=3;i<10;i++)
+    {
+      if (fileDescriptor[i] == NULL)
+        {
+           fileDescriptor[i] = openfile;
+           return i;
+        }  //if      
+    }  //for
+    return -1;
+ }
+
+
+OpenFile* AddrSpace::getFileId(int fd)
+{
+   return fileDescriptor[fd]; 
+}
+
+void AddrSpace::releaseFileDescriptor(int fd)
+{
+   fileDescriptor[fd] = NULL;
 }

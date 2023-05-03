@@ -3,5 +3,5 @@ arch/unknown-i386-linux/depends/synchlist.d arch/unknown-i386-linux/objects/sync
  ../threads/bool.h ../machine/sysdep.h ../threads/copyright.h \
  ../threads/synch.h ../threads/thread.h ../machine/machine.h \
  ../threads/utility.h ../machine/translate.h ../machine/disk.h \
- ../lab7-8/addrspace.h ../filesys/filesys.h ../filesys/openfile.h \
- ../lab7-8/bitmap.h ../filesys/openfile.h
+ ../lab7-8/addrspace.h ../lab7-8/filesys.h ../lab7-8/openfile.h \
+ ../lab7-8/bitmap.h
