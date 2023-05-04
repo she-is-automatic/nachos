@@ -107,10 +107,10 @@ AddrSpace::AddrSpace(OpenFile *executable)
     {
         DEBUG('a', "Initializing code segment, at 0x%x, size %d\n",
               noffH.code.virtualAddr, noffH.code.size);
-        unsigned int vpn, offset, ppn;              // virtualPageNumber/offset/ physicalPageNumber
-        vpn = noffH.code.virtualAddr / PageSize;    // 虚页号
-        offset = noffH.code.virtualAddr % PageSize; // 页内偏移量
-        ppn = pageTable[vpn].physicalPage * PageSize + offset;  // 实页号
+        unsigned int vpn, offset, ppn;                         // virtualPageNumber/offset/ physicalPageNumber
+        vpn = noffH.code.virtualAddr / PageSize;               // 虚页号
+        offset = noffH.code.virtualAddr % PageSize;            // 页内偏移量
+        ppn = pageTable[vpn].physicalPage * PageSize + offset; // 实页号
         executable->ReadAt(&(machine->mainMemory[ppn]),
                            noffH.code.size, noffH.code.inFileAddr);
     }
@@ -127,16 +127,15 @@ AddrSpace::AddrSpace(OpenFile *executable)
     }
 
     // 初始化打开文件的文件描述符
-    for (int i=3;i<10;i++)    //up to open 10 file for each process
-       fileDescriptor[i] = NULL; 
-       
+    for (int i = 3; i < 10; i++) // up to open 10 file for each process
+        fileDescriptor[i] = NULL;
+
     OpenFile *StdinFile = new OpenFile("stdin");
     OpenFile *StdoutFile = new OpenFile("stdout");
     OpenFile *StderrFile = new OpenFile("stderr");
-    fileDescriptor[0] =  StdinFile;
-    fileDescriptor[1] =  StdoutFile;
-    fileDescriptor[2] =  StderrFile;
-
+    fileDescriptor[0] = StdinFile;
+    fileDescriptor[1] = StdoutFile;
+    fileDescriptor[2] = StderrFile;
 }
 
 AddrSpace::AddrSpace(AddrSpace *space)
@@ -171,17 +170,9 @@ AddrSpace::AddrSpace(AddrSpace *space)
         }
     }
 
-    // 初始化打开文件的文件描述符
-    for (int i=3;i<10;i++)    //up to open 10 file for each process
-       fileDescriptor[i] = NULL; 
-       
-    OpenFile *StdinFile = new OpenFile("stdin");
-    OpenFile *StdoutFile = new OpenFile("stdout");
-    OpenFile *StderrFile = new OpenFile("stderr");
-    fileDescriptor[0] =  StdinFile;
-    fileDescriptor[1] =  StdoutFile;
-    fileDescriptor[2] =  StderrFile;
-
+    // 复制父线程的文件描述符
+    for (int i = 0; i < 10; i++) // up to open 10 file for each process
+        fileDescriptor[i] = space->getFileId(i);
 }
 //----------------------------------------------------------------------
 // AddrSpace::~AddrSpace
@@ -250,7 +241,6 @@ void AddrSpace::RestoreState()
     machine->pageTableSize = numPages; // 页表大小
 }
 
-
 void AddrSpace::Print()
 {
     printf("page table dump: %d pages in total\n", numPages);
@@ -264,27 +254,25 @@ void AddrSpace::Print()
     printf("\n=======================================================\n\n");
 }
 
-
-int AddrSpace::getFileDescriptor(OpenFile * openfile)
+int AddrSpace::getFileDescriptor(OpenFile *openfile)
 {
-    for (int i=3;i<10;i++)
+    for (int i = 3; i < 10; i++)
     {
-      if (fileDescriptor[i] == NULL)
+        if (fileDescriptor[i] == NULL)
         {
-           fileDescriptor[i] = openfile;
-           return i;
-        }  //if      
-    }  //for
+            fileDescriptor[i] = openfile;
+            return i;
+        } // if
+    }     // for
     return -1;
- }
+}
 
-
-OpenFile* AddrSpace::getFileId(int fd)
+OpenFile *AddrSpace::getFileId(int fd)
 {
-   return fileDescriptor[fd]; 
+    return fileDescriptor[fd];
 }
 
 void AddrSpace::releaseFileDescriptor(int fd)
 {
-   fileDescriptor[fd] = NULL;
+    fileDescriptor[fd] = NULL;
 }

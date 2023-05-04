@@ -721,7 +721,7 @@ void ExceptionHandler(ExceptionType which)
 
         case SC_Join: // 父进程等待子进程，返回等待的子进程的退出码
         {
-            printf(BLUE "\nCurrentThreadPID: %d , SC_Join\n" NONE, (currentThread->space)->getSpaceId());
+            printf(BLUE "\nCurrentThreadPID: %d , SC_Join\033[m\n", (currentThread->space)->getSpaceId());
             int SpaceId = machine->ReadRegister(4); // 获取参数spaceId
             currentThread->Join(SpaceId);
 
