@@ -27,21 +27,13 @@ class Scheduler {
 					// list, if any, and return thread.
     void Run(Thread* nextThread);	// Cause nextThread to start running
     void Print();			// Print contents of ready list
+
+    // CHANGE
+    void PrintThreads();
     
   private:
     List *readyList;      // 可运行态进程的队列
 
-#ifdef USER_PROGRAM
-  public:
-    List *getReadyList() { return readyList; }
-    List *getWaitingList() { return waitingList; }
-    List *getTerminatedList() { return terminatedList; } //返回
-    void deleteTerminatedThread(int deleteSpaceId);
-    void emptyList(List *tmpList) { delete tmpList; }
-  private:
-    List *waitingList;    // 等待运行进程的队列
-    List *terminatedList; // 终止运行但未释放进程的队列
-#endif
 };
 
 #endif // SCHEDULER_H

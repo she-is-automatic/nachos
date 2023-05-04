@@ -170,6 +170,18 @@ AddrSpace::AddrSpace(AddrSpace *space)
             machine->mainMemory[ppa + i] = machine->mainMemory[physicalPagefirst * PageSize + i];
         }
     }
+
+    // 初始化打开文件的文件描述符
+    for (int i=3;i<10;i++)    //up to open 10 file for each process
+       fileDescriptor[i] = NULL; 
+       
+    OpenFile *StdinFile = new OpenFile("stdin");
+    OpenFile *StdoutFile = new OpenFile("stdout");
+    OpenFile *StderrFile = new OpenFile("stderr");
+    fileDescriptor[0] =  StdinFile;
+    fileDescriptor[1] =  StdoutFile;
+    fileDescriptor[2] =  StderrFile;
+
 }
 //----------------------------------------------------------------------
 // AddrSpace::~AddrSpace

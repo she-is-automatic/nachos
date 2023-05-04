@@ -4,6 +4,7 @@
         "numeric": "cpp",
         "ostream": "cpp",
         "sstream": "cpp",
-        "chrono": "c"
+        "chrono": "c",
+        "thread": "cpp"
     }
 }

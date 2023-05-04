@@ -1,6 +1,6 @@
 #include "syscall.h"
 
 int main() {
-	Exec("../test/exit.noff");
+	Exec("exit.noff");
 	Exit(1);
 }

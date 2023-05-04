@@ -91,6 +91,13 @@ class FileSystem {
 
 	void setBitMap(BitMap* freeMap);	// 设置空闲块位示图，写回磁盘
 
+
+
+	// CHANGE
+	bool Rename(char *source, char *dest);
+	void FormatDisk(bool format);
+
+
   private:
    OpenFile* freeMapFile;		// Bit map of free disk blocks,
 					// represented as a file

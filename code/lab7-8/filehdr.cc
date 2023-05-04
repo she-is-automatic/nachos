@@ -204,3 +204,12 @@ bool FileHeader::Allocate(BitMap *freeMap, int fileSize, int incrementBytes)
     numSectors = numSectors + moreSectors; // 更新文件扇区块数
     return TRUE;
 }
+
+
+// 打印文件所占的扇区
+void FileHeader::PrintDataSectors() {
+    for(int i = 0; i < numSectors; ++i) {
+        printf("%d ", dataSectors[i]);
+    }
+    printf("\n");
+}

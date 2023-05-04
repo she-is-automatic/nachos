@@ -71,6 +71,9 @@ class Directory {
 					//  of the directory -- all the file
 					//  names and their contents.
 
+    // CHANGE
+    bool Rename(char *source, char *dest);
+
   private:
     int tableSize;			// Number of directory entries
     DirectoryEntry *table;		// Table of pairs: 

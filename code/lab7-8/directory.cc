@@ -24,6 +24,10 @@
 #include "utility.h"
 #include "filehdr.h"
 #include "directory.h"
+#include "filesys.h"
+
+extern FileSystem *fileSystem;
+
 
 //----------------------------------------------------------------------
 // Directory::Directory
@@ -166,13 +170,13 @@ Directory::Remove(char *name)
 // 	List all the file names in the directory. 
 //----------------------------------------------------------------------
 
-void
-Directory::List()
-{
-   for (int i = 0; i < tableSize; i++)
-	if (table[i].inUse)
-	    printf("%s\n", table[i].name);
-}
+// void
+// Directory::List()
+// {
+//    for (int i = 0; i < tableSize; i++)
+// 	if (table[i].inUse)
+// 	    printf("%s\n", table[i].name);
+// }
 
 //----------------------------------------------------------------------
 // Directory::Print
@@ -194,4 +198,60 @@ Directory::Print()
 	}
     printf("\n");
     delete hdr;
+}
+
+
+
+// CHANGE
+extern char *setStrLength(char *str, int len);
+extern char *numFormat(int num);
+
+void Directory::List()
+{
+    FileHeader *hdr = new FileHeader;
+
+    int size = 0;
+    printf("=============================================================\n");
+    printf("Name       Size  Sectors  SectorList\n");
+    printf("-------------------------------------------------------------\n");
+    // 取出每个目录项的文件头，获取对应的文件信息，打印
+    for (int i = 0; i < tableSize; i++)
+        if (table[i].inUse)
+        {
+            hdr->FetchFrom(table[i].sector);
+            size += hdr->FileLength();
+
+            char *fileName = table[i].name;
+            int fileSize = hdr->FileLength();
+            int fileSectors = hdr->getNumSectors();
+
+            printf("%s  ", setStrLength(fileName, 9));
+
+            printf("%s  ", setStrLength(numFormat(fileSize), 7));
+            printf("%s", setStrLength(numFormat(fileSectors), 6));
+            hdr->PrintDataSectors();
+        }
+    printf("-------------------------------------------------------------\n");
+
+    // size:not include the file header
+    // printf("Available Disk Space: %s bytes",numFormat(32*32*128 - size));
+    // printf(" (%s KB)\n\n",numFormat((32*32*128 - size)/1024));
+
+    BitMap *freeMap = fileSystem->getBitMap();
+    int freeSize = freeMap->NumClear() * 128;
+    printf("Available Disk Space: %s bytes", numFormat(freeSize));
+    printf(" (%s KB)\n\n", numFormat(freeSize / 1024));
+
+    delete hdr;
+}
+
+
+// 目录中重命名
+bool Directory::Rename(char *source, char *dest) {
+        int i = FindIndex(source);
+
+    if (i == -1)
+	return FALSE; 		// name not in directory
+    strncpy(table[i].name, dest, FileNameMaxLen); 
+    return TRUE;
 }

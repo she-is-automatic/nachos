@@ -63,6 +63,10 @@ public:
   // 修改后、可扩展的分配
   bool Allocate(BitMap *freeMap, int fileSize, int incrementBytes);
 
+  // CHANGE
+  int getNumSectors() { return numSectors; }
+  void PrintDataSectors();
+
 private:
   int numBytes;               // Number of bytes in the file
   int numSectors;             // Number of data sectors in the file
